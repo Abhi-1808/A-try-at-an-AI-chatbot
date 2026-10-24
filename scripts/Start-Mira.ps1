@@ -1,13 +1,23 @@
 # A local launcher. The key is prompted without echo and is never written to disk.
 [CmdletBinding()]
-param([switch]$Pilot)
+param([switch]$Pilot, [switch]$Mock)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ($Mock -and $Pilot) {
+    throw '-Mock cannot be combined with -Pilot; the pilot evaluates a real model.'
+}
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot '.venv312\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $pythonPath)) {
     throw 'Install the locked Python environment first; see docs/live_demo.md.'
+}
+
+if ($Mock) {
+    Write-Host 'Mira offline mock: scripted replies; no API key or network required.'
+    Write-Host 'Try: Hi, /workout start squats 12, /workout reps 10, How many left?, /quit'
+    & $pythonPath -m hope_brain.cli --provider mock --chat 1>$null
+    exit $LASTEXITCODE
 }
 
 # These are explicit pilot rates, checked against the official documentation.

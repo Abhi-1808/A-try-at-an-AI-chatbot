@@ -6,7 +6,18 @@ not establish that the real model sounds like Mira.
 
 ## Run from PowerShell
 
-Install the optional adapter if needed:
+Without a paid API key, start the free offline demo:
+
+```powershell
+& .\scripts\Start-Mira.ps1 -Mock
+```
+
+This uses the existing local mock, never prompts for a key and needs no optional
+Anthropic SDK. It supports workout commands, confirmation and safety/stop flows.
+Replies are scripted; it cannot evaluate Mira's real-model personality. `-Mock`
+cannot be combined with `-Pilot`. A real local-model provider is not implemented yet.
+
+For the paid model modes below, install the optional adapter if needed:
 
 ```powershell
 $env:UV_PROJECT_ENVIRONMENT = '.venv312'

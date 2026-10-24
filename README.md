@@ -46,7 +46,11 @@ The original character baseline is [persona v1](docs/persona_v1.md). The
 For live-provider installation, configuration, costs, and an explicitly opt-in
 smoke test, see [live provider](docs/live_provider.md).
 
-For the next visible milestone, run `& .\scripts\Start-Mira.ps1 -Pilot` in PowerShell.
+Without an API key, run `& .\scripts\Start-Mira.ps1 -Mock` for the free scripted
+terminal demo. Workout state and safety/stop commands work; persona evaluation
+still requires a real model.
+
+With a paid key, run `& .\scripts\Start-Mira.ps1 -Pilot` in PowerShell.
 It prompts privately for a key and runs five real-model scenarios with a $0.05
 cumulative estimate limit. See [terminal demo instructions](docs/live_demo.md)
 for setup, human persona review, cost accounting and interactive chat.

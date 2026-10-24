@@ -128,3 +128,31 @@ git diff --check
 ```
 
 These were offline terminal runs; no paid API calls or real-persona measurements.
+
+## No-key demo follow-up — 24 October 2026
+
+The user currently has no paid API key. Added `Start-Mira.ps1 -Mock` to launch the
+existing free scripted CLI without prompting for credentials or loading the optional
+SDK. Reject `-Mock -Pilot` so the scripted demo cannot be mistaken for a model eval.
+Updated the launcher, `tests/test_demo.py`, README and demo instructions.
+
+Verified with a real PowerShell subprocess: no key present, optional SDK shadowed
+with an import failure, deliberately invalid live settings, and a 10/12 workout
+conversation. The mock still starts and reports 2 remaining. No paid calls occurred.
+
+```powershell
+& .\.venv312\Scripts\python.exe -m pytest -q
+# 183 passed in 13.35s
+& .\.venv312\Scripts\ruff.exe check .
+# All checks passed!
+git diff --check
+# Exit 0
+```
+
+Read-only hardware checks report 15.3 GB RAM and AMD Radeon (TM) Graphics. No
+Ollama/LM Studio installation was found on PATH or in the checked usual locations.
+These checks do not establish GPU acceleration or inference performance. No runtime
+or model was installed. Next potential task: add a local-model adapter and benchmark
+a suitably small model. Ollama's [local API needs no authentication](https://docs.ollama.com/api/authentication),
+and [local-only mode](https://docs.ollama.com/faq#how-do-i-disable-ollamas-cloud-features)
+can disable cloud features. Current project support remains mock or Anthropic only.

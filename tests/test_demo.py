@@ -194,6 +194,41 @@ def test_pilot_contract_checks_word_count_and_duplicate_terminal():
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell launcher is Windows-only")
+def test_mock_launcher_runs_without_key_or_sdk_and_rejects_paid_pilot(tmp_path):
+    import os
+    import subprocess
+    from pathlib import Path
+
+    launcher = Path(__file__).resolve().parents[1] / "scripts" / "Start-Mira.ps1"
+    # Fail if the no-key path accidentally imports the optional live SDK.
+    (tmp_path / "anthropic.py").write_text(
+        "raise AssertionError('Live SDK must not load in mock mode')\n", encoding="utf-8",
+    )
+    env = {key: value for key, value in os.environ.items() if key != "ANTHROPIC_API_KEY"}
+    env.update({"PYTHONPATH": str(tmp_path), "HOPE_MAX_TOKENS": "invalid-live-setting"})
+    command = ["powershell.exe", "-NoProfile", "-NonInteractive", "-File", str(launcher), "-Mock"]
+    result = subprocess.run(
+        command, input="Hi\n/workout start squats 12\n/workout reps 10\nHow many left?\n/quit\n",
+        capture_output=True, text=True, timeout=20, check=False, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "scripted replies" in result.stdout
+    assert "Mira: Hey there!" in result.stderr
+    assert "Mira: 2 reps remain." in result.stderr
+    assert "API key (hidden" not in result.stdout + result.stderr
+    assert "invalid-live-setting" not in result.stdout + result.stderr
+    assert '"turn_id"' not in result.stdout + result.stderr
+
+    rejected = subprocess.run(
+        [*command, "-Pilot"], capture_output=True, text=True,
+        timeout=10, check=False, env=env,
+    )
+    assert rejected.returncode != 0
+    assert "cannot be combined" in rejected.stderr
+    assert "API key (hidden" not in rejected.stdout + rejected.stderr
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="PowerShell launcher is Windows-only")
 def test_launcher_restores_environment_on_child_failure_without_logging_key(tmp_path):
     import os
     import subprocess
