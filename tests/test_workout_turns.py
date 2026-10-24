@@ -19,7 +19,7 @@ class NeverProvider:
     def __init__(self):
         self.calls = 0
 
-    async def generate(self, request):
+    async def generate(self, request, *, context=None):
         self.calls += 1
         raise AssertionError("This deterministic turn must bypass the provider")
 

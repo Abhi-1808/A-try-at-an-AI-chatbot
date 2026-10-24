@@ -18,6 +18,7 @@ def live_env():
         "ANTHROPIC_API_KEY": "test-secret",
         "HOPE_ANTHROPIC_MODEL": "test-model",
         "HOPE_TURN_BUDGET_USD": "0.01",
+        "HOPE_SESSION_BUDGET_USD": "0.05",
         "HOPE_INPUT_USD_PER_MILLION": "1",
         "HOPE_OUTPUT_USD_PER_MILLION": "2",
     }
@@ -133,7 +134,7 @@ def test_cli_writes_utf8_even_with_ascii_host_encoding():
     code = """
 from hope_brain import cli
 from hope_brain.contracts import SpeechSegment
-async def generate(self, request):
+async def generate(self, request, *, context=None):
     return [SpeechSegment(text=chr(0x4F60) + chr(0x597D), emotion='happy', intensity=0.5)]
 cli.DeterministicMockProvider.generate = generate
 cli.main()

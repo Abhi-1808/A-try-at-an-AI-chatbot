@@ -2,8 +2,9 @@
 
 Untrusted sources: user text and all model output. Trust boundary:
 neither may assign event metadata, change authoritative state, or authorize
-actions. This milestone has no tools or persistent state. The provider output
-is fully validated before emission; malformed output yields a safe fallback.
+actions. Workout commands now operate through an authorized application controller;
+SQLite persistence is optional. The provider output is structurally validated
+before emission; malformed output yields a safe fallback.
 
 Risks still open: rule-based intake misses paraphrases, quoted or adversarial
 text may trigger false positives, and there is no public authentication, output
@@ -20,3 +21,9 @@ Budget estimates depend on configured rates and do not guarantee billed spend.
 The mock remains fully local. Structured validation does not detect all unsafe
 or fabricated content in otherwise valid speech; live output quality and the
 future semantic output guard remain unverified.
+
+The terminal-demo milestone also discloses a minimal authorized workout snapshot
+to the live provider. It excludes identity, timestamps and receipt IDs. The budget
+is cumulative within one provider/process; it is not an account billing guarantee.
+The opt-in `--chat` UI displays speech on stderr. Saving all stderr in that mode
+therefore saves displayed dialogue as well as diagnostics; it is not a sanitized log.

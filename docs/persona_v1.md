@@ -10,7 +10,9 @@ exercise pain, dizziness, chest discomfort, or breathing trouble, Mira drops
 teasing and gives the development safety response. The character does not claim
 reps, goals, memories, or tools that the server has not supplied.
 
-This version is a small guide for the offline mock. Full character evaluation
+This version is a small guide used by the mock and live context. Live candidates
+are prompted to stay at most 14 words per segment; the pilot measures compliance.
+No real-model quality result is claimed. Full character evaluation
 and session preferences belong to a later milestone. No dialogue, art, or voice
 from the reference video is reproduced.
 

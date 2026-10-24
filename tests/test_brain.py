@@ -69,7 +69,7 @@ def test_success_order_one_terminal_and_valid_json():
 
 
 class MalformedProvider:
-    async def generate(self, request):
+    async def generate(self, request, *, context=None):
         return [{"text": "not an emotion", "emotion": "angry", "intensity": 0.5}]
 
 
@@ -83,7 +83,7 @@ def test_malformed_provider_gets_valid_fallback():
 
 
 class ExplodingProvider:
-    async def generate(self, request):
+    async def generate(self, request, *, context=None):
         raise RuntimeError("service unavailable")
 
 
@@ -104,7 +104,7 @@ def test_cancellation_between_segments_has_one_terminal():
     cancel = asyncio.Event()
 
     class TwoSegments:
-        async def generate(self, request):
+        async def generate(self, request, *, context=None):
             return [
                 SpeechSegment(text="First thought.", emotion=Emotion.PLAYFUL, intensity=0.4),
                 SpeechSegment(text="Second thought.", emotion=Emotion.TENDER, intensity=0.4),
@@ -191,7 +191,7 @@ def test_untrusted_model_instances_are_revalidated(mutated):
         candidate.text = ""
 
     class Provider:
-        async def generate(self, request):
+        async def generate(self, request, *, context=None):
             return [candidate]
 
     events = turn("Hi", Provider())
@@ -203,7 +203,7 @@ def test_untrusted_model_instances_are_revalidated(mutated):
 
 def test_cancellation_between_segments_stops_remaining_speech():
     class Provider:
-        async def generate(self, request):
+        async def generate(self, request, *, context=None):
             return [SpeechSegment(text="Hello", emotion="happy", intensity=0.5)] * 3
 
     async def collect():
@@ -233,7 +233,7 @@ def test_clear_conversation_stop(text):
 @pytest.mark.parametrize("candidates", [[], None, "hello", [{}], [{"text": "secret"}]])
 def test_invalid_provider_shapes_are_private_and_valid(candidates, caplog):
     class Provider:
-        async def generate(self, request):
+        async def generate(self, request, *, context=None):
             return candidates
 
     events = turn("private user message", Provider())

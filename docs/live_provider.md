@@ -27,6 +27,7 @@ the app does not automatically read `.env` files.
 | HOPE_MAX_TOKENS | Default 256; integer 1-4096 |
 | HOPE_TIMEOUT_SECONDS | Default 30; total timeout greater than 0 and at most 120 seconds |
 | HOPE_TURN_BUDGET_USD | Required positive per-turn estimated spend limit |
+| HOPE_SESSION_BUDGET_USD | Required positive cumulative limit shared by one provider/process |
 | HOPE_INPUT_USD_PER_MILLION | Required positive input price for your chosen model |
 | HOPE_OUTPUT_USD_PER_MILLION | Required positive output price for your chosen model |
 
@@ -39,6 +40,7 @@ $env:HOPE_ANTHROPIC_MODEL = Read-Host 'Model ID'
 $env:HOPE_INPUT_USD_PER_MILLION = Read-Host 'Input USD per million tokens'
 $env:HOPE_OUTPUT_USD_PER_MILLION = Read-Host 'Output USD per million tokens'
 $env:HOPE_TURN_BUDGET_USD = '0.01'
+$env:HOPE_SESSION_BUDGET_USD = '0.05'
 $env:HOPE_MAX_TOKENS = '256'
 $env:HOPE_TIMEOUT_SECONDS = '30'
 & .\.venv312\Scripts\python.exe -m hope_brain.cli --provider anthropic
@@ -48,13 +50,17 @@ The preflight estimate is `(reserved_input * input_rate + max_tokens * output_ra
 / 1,000,000`, with `reserved_input = ceil(count * 1.10) + 64`. Above-budget turns
 emit fallback speech then `turn.failed` with `provider_budget_exceeded`. There is
 no automatic retry. This is an estimate gate, not a billing guarantee: incorrect
-rates, provider-side accounting, interrupted requests, and repeated turns may
-still incur charges. Set a small account/workspace spend limit in the provider
-console as well. There is no cumulative session budget in this milestone.
+rates, provider-side accounting and interrupted requests may still incur charges.
+The cumulative ledger reserves the estimate before generation, reconciles complete
+usage, retains estimates for unknown usage, and blocks later generation after an
+observed estimate overrun. A process restart resets the allowance; concurrent
+processes have separate allowances. Use provider account limits for account-wide control.
 
 Input is limited to 16,384 UTF-8 bytes before even the token-count request. Both
 counting and generation receive current text and the trusted system prompt.
-No history, session ID, saved memory, tool call, or workout state is sent.
+An authorized workout snapshot is also sent when available, without identity,
+receipt IDs or timestamps. No conversation history, session ID, saved personal
+memory or tool call is sent. The model cannot mutate workout state.
 
 ## Verification
 
@@ -88,3 +94,5 @@ local cleanup and does not promise that a remote billable request was undone.
 The response schema is a structural guard. The development safety policy does
 not provide comprehensive semantic safety, and no live quality evaluation has
 been performed. See ADR 0002 for decisions and verified SDK documentation.
+See [the bounded terminal demo](live_demo.md) and [ADR 0004](adr/0004-bounded-terminal-demo.md)
+for the cumulative budget, hidden key prompt and five-scenario pilot.

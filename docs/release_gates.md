@@ -32,13 +32,14 @@ No real-model persona or 14-word compliance claim follows from unit-test results
 further spend. Count generation, judge, and retry attempts separately. There
 are no generation retries in the current adapter.
 
-Before running live: select a model, verify its current pricing and availability,
-set a small account/workspace limit, and implement a total-run budget that includes
-judge calls and unsuccessful attempts. Suggested initial experiment ceiling:
-USD 0.25 total, with the existing per-turn cap kept low. This is a proposed
-ceiling, not authorization or a promise that all 99 executions fit within it.
-The current adapter only enforces an estimated per-turn preflight; no batch run
-has been started and there is no aggregate-run cap yet.
+The user prioritized a five-scenario pilot before the remaining milestones and
+chose to run it personally. The [prepared pilot](live_demo.md) enforces a maximum
+USD 0.05 cumulative estimate and USD 0.01 per turn. One provider instance shares
+accounting across turns and retains uncertain reservations after failures.
+It makes no judge calls. No paid pilot or full corpus run has been performed here.
+For a later full evaluation, include every generation/judge attempt in one budget,
+verify then-current pricing, and set an account-wide limit separately. Process
+restarts currently reset local accounting; this is not an account-level spend cap.
 
 Pricing checked against the official page on 24 October 2026. It lists standard
 Claude Haiku 4.5 at USD 1 input / USD 5 output per million tokens, and Claude
@@ -52,7 +53,7 @@ Record missing usage on cancellations/failures as unknown, not zero. Token usage
 is not a billing invoice. Report call count, model, rates/date, budget consumed,
 unknown-cost calls, p50/p95, workload, hardware and sample size.
 
-Next: Prompt 03 character bible and offline versioned evaluation corpus. Then
-opt-in memory/deletion and safety coverage can fill their specific missing cases.
-Live evaluation and latency/cost measurement remain explicit subsequent work;
+Next: the user's five-scenario run and human review of Mira's personality and state
+honesty. Use the findings to guide Prompt 03's character bible and versioned corpus.
+Opt-in memory/deletion and broader safety coverage still need their own milestones;
 voice and avatar work stay gated.

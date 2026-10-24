@@ -35,6 +35,7 @@ def settings(**overrides):
             "api_key": "test-secret",
             "model": "test-model",
             "turn_budget_usd": "0.01",
+            "session_budget_usd": "0.05",
             "input_usd_per_million": "1",
             "output_usd_per_million": "2",
             **overrides,
@@ -188,6 +189,9 @@ def test_stream_success_and_context_boundary(caplog):
     assert '"input_tokens":100' in caplog.text
     assert '"output_tokens":35' in caplog.text
     assert '"first_text_ms"' in caplog.text
+    assert provider.last_metrics["usage_cost_usd"] == "0.00017"
+    assert provider.last_metrics["estimate_minus_usage_usd"] == "0.000516"
+    assert provider.last_metrics["cumulative_unknown_reserved_usd"] == "0"
 
 
 @pytest.mark.parametrize(
@@ -235,6 +239,7 @@ def test_budget_blocks_generation():
     provider, requests, _, _ = provider_with_transport(config=settings(turn_budget_usd="0.000001"))
     result = asyncio.run(collect(provider))
     assert result[-1].reason == "provider_budget_exceeded"
+    assert "spending limit" in result[1].segment.text
     assert len(requests) == 1
     assert requests[0].url.path.endswith("count_tokens")
 
@@ -389,3 +394,132 @@ def test_task_cancellation_closes_sdk_stream():
         assert stream.closed
 
     asyncio.run(run())
+
+
+def test_cumulative_limit_blocks_second_generation():
+    provider, requests, _, _ = provider_with_transport(config=settings(session_budget_usd="0.0008"))
+
+    async def exercise():
+        try:
+            await provider.generate(REQUEST)
+            from hope_brain.provider import ProviderBudgetExceeded
+            with pytest.raises(ProviderBudgetExceeded):
+                await provider.generate(REQUEST)
+        finally:
+            await provider.aclose()
+    asyncio.run(exercise())
+    assert sum(not r.url.path.endswith("count_tokens") for r in requests) == 1
+    assert provider.last_metrics["outcome"] == "budget_exceeded"
+
+
+@pytest.mark.parametrize("failure", ["timeout", "cancel", "http", "truncated"])
+def test_uncertain_generation_retains_entire_reservation(failure):
+    provider, _, stream, _ = provider_with_transport(
+        events()[:4], hang=failure in {"timeout", "cancel"},
+        config=settings(timeout_seconds=0.1), status=500 if failure == "http" else 200,
+    )
+
+    async def exercise():
+        cancel = asyncio.Event()
+        task = asyncio.create_task(collect(provider, cancel))
+        if failure == "cancel":
+            await stream.entered.wait()
+            cancel.set()
+        return await task
+    result = asyncio.run(exercise())
+    assert result[-1].type in {"turn.failed", "turn.cancelled"}
+    metrics = provider.last_metrics
+    assert metrics["cumulative_unknown_reserved_usd"] == metrics["estimated_max_usd"]
+    assert metrics["cumulative_pending_usd"] == "0"
+    assert "usage_cost_usd" not in metrics
+
+
+def test_complete_usage_accounts_for_rejected_json():
+    provider, _, _, _ = provider_with_transport(events("not-json"))
+    result = asyncio.run(collect(provider))
+    assert result[-1].reason == "provider_invalid"
+    assert provider.last_metrics["usage_cost_usd"] == "0.00017"
+    assert provider.last_metrics["cumulative_unknown_reserved_usd"] == "0"
+
+
+def test_count_timeout_does_not_reserve_generation_cost():
+    provider, _, _, _ = provider_with_transport(
+        config=settings(timeout_seconds=0.1), count_hang=True,
+    )
+    asyncio.run(collect(provider))
+    assert provider.last_metrics["cumulative_accounted_usd"] == "0"
+    assert provider.last_metrics["cumulative_pending_usd"] == "0"
+
+
+def test_five_scenario_pilot_uses_real_adapter_with_mock_http(monkeypatch, capsys):
+    import sys
+
+    from hope_brain import anthropic_provider, cli
+    from hope_brain.pilot import SCENARIOS
+
+    provider, requests, _, _ = provider_with_transport()
+    monkeypatch.setattr(anthropic_provider, "AnthropicProvider", lambda settings: provider)
+    monkeypatch.setattr(AnthropicSettings, "from_env", classmethod(lambda cls: settings()))
+    monkeypatch.setattr(sys, "argv", ["hope", "--provider", "anthropic", "--live-pilot", "--chat"])
+    assert asyncio.run(cli.run()) == 0
+    captured = capsys.readouterr()
+    emitted = [brain_event_adapter.validate_json(line) for line in captured.out.splitlines()]
+    assert sum(e.type == "turn.completed" for e in emitted) == 7  # two local setup turns
+    bodies = [json.loads(r.content) for r in requests if not r.url.path.endswith("count_tokens")]
+    assert len(bodies) == 5
+    assert [body["messages"][0]["content"] for body in bodies] == [p for _, p in SCENARIOS]
+    assert all('"reps_done":10' in body["system"] for body in bodies)
+    assert all('"remaining":2' in body["system"] for body in bodies)
+    assert "Mira: Hello there!" in captured.err
+    assert '"persona_state_review": "pending"' in captured.err
+    assert '"release_gates": "not_evaluated"' in captured.err
+    assert '"first_segment_samples": 5' in captured.err
+    assert "test-secret" not in captured.err
+    assert provider.client.is_closed()
+
+
+def test_pilot_fails_fast_without_counting_fallback_latency(monkeypatch, capsys):
+    import sys
+
+    from hope_brain import anthropic_provider, cli
+
+    provider, requests, _, _ = provider_with_transport(events("invalid JSON"))
+    monkeypatch.setattr(anthropic_provider, "AnthropicProvider", lambda settings: provider)
+    monkeypatch.setattr(AnthropicSettings, "from_env", classmethod(lambda cls: settings()))
+    monkeypatch.setattr(sys, "argv", ["hope", "--provider", "anthropic", "--live-pilot"])
+    assert asyncio.run(cli.run()) == 1
+    output = capsys.readouterr()
+    assert len(requests) == 2
+    assert '"attempted": 1' in output.err
+    assert '"first_segment_samples": 0' in output.err
+    assert '"first_segment_p50_ms": null' in output.err
+
+
+def test_final_usage_update_and_overrun_block_later_generation():
+    payload = events()
+    payload[-2]["usage"]["input_tokens"] = 1000
+    provider, requests, _, _ = provider_with_transport(payload)
+
+    async def exercise():
+        from hope_brain.provider import ProviderBudgetExceeded
+        try:
+            await provider.generate(REQUEST)
+            assert provider.last_metrics["usage_cost_usd"] == "0.00107"
+            assert provider.last_metrics["estimate_minus_usage_usd"] == "-0.000384"
+            with pytest.raises(ProviderBudgetExceeded):
+                await provider.generate(REQUEST)
+        finally:
+            await provider.aclose()
+    asyncio.run(exercise())
+    assert sum(not r.url.path.endswith("count_tokens") for r in requests) == 1
+
+
+@pytest.mark.parametrize("location", ["start", "delta"])
+def test_unexpected_cache_usage_is_not_mispriced(location):
+    payload = events()
+    usage = payload[0]["message"]["usage"] if location == "start" else payload[-2]["usage"]
+    usage["cache_creation_input_tokens"] = 10
+    provider, _, _, _ = provider_with_transport(payload)
+    assert asyncio.run(collect(provider))[-1].reason == "provider_invalid"
+    assert "usage_cost_usd" not in provider.last_metrics
+    assert provider.last_metrics["cumulative_unknown_reserved_usd"] == "0.000686"

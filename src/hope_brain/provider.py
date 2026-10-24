@@ -3,19 +3,24 @@
 from collections.abc import Sequence
 from typing import Protocol
 
+from hope_brain.context import TrustedContext
 from hope_brain.contracts import BrainTurnRequest, Emotion, SpeechSegment
 
 
 class ProviderBudgetExceeded(Exception):
-    """The configured estimate exceeds the per-turn budget."""
+    """The configured estimate exceeds a per-turn or cumulative budget."""
 
 
 class ModelProvider(Protocol):
-    async def generate(self, request: BrainTurnRequest) -> Sequence[object]: ...
+    async def generate(
+        self, request: BrainTurnRequest, *, context: TrustedContext | None = None
+    ) -> Sequence[object]: ...
 
 
 class DeterministicMockProvider:
-    async def generate(self, request: BrainTurnRequest) -> Sequence[object]:
+    async def generate(
+        self, request: BrainTurnRequest, *, context: TrustedContext | None = None
+    ) -> Sequence[object]:
         words = request.text.casefold()
         if "are you an ai" in words or "are you a bot" in words:
             return [

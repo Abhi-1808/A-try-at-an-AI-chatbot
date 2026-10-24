@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
+from hope_brain.context import TrustedContext, WorkoutContext
 from hope_brain.contracts import (
     BrainEvent,
     BrainTurnRequest,
@@ -93,10 +94,12 @@ class TurnOrchestrator:
                 yield TurnCompleted(turn_id=turn_id, seq=seq)
             return
 
+        context = TrustedContext()
         if self.workout is not None:
             try:
                 # Authenticate the bound scope even for a non-workout conversation turn.
-                self.workout.repository.get(self.workout.actor)
+                state = self.workout.repository.get(self.workout.actor)
+                context = TrustedContext(WorkoutContext.from_state(state) if state else None)
                 reply = self.workout.handle(request.text, request.submission_id)
             except WorkoutError as error:
                 seq += 1
@@ -144,7 +147,7 @@ class TurnOrchestrator:
                 return
 
         try:
-            candidates = await self._generate(request, cancel)
+            candidates = await self._generate(request, cancel, context)
             if cancel is not None and cancel.is_set():
                 yield TurnCancelled(turn_id=turn_id, seq=seq + 1, reason="request_cancelled")
                 return
@@ -189,9 +192,9 @@ class TurnOrchestrator:
         yield TurnCompleted(turn_id=turn_id, seq=seq + 1)
 
     async def _generate(
-        self, request: BrainTurnRequest, cancel: asyncio.Event | None
+        self, request: BrainTurnRequest, cancel: asyncio.Event | None, context: TrustedContext
     ) -> Sequence[object]:
-        generation = asyncio.create_task(self.provider.generate(request))
+        generation = asyncio.create_task(self.provider.generate(request, context=context))
         cancellation = asyncio.create_task(cancel.wait()) if cancel is not None else None
         tasks = [generation] if cancellation is None else [generation, cancellation]
         try:
@@ -216,7 +219,11 @@ class TurnOrchestrator:
             turn_id=turn_id,
             seq=seq + 1,
             segment=SpeechSegment(
-                text="Sorry, I missed that. Please say it again.",
+                text=(
+                    "The spending limit blocks this reply. Please review the budget settings."
+                    if reason == "provider_budget_exceeded"
+                    else "Sorry, I missed that. Please say it again."
+                ),
                 emotion=Emotion.NEUTRAL,
                 intensity=0.3,
             ),
