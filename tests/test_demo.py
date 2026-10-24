@@ -229,6 +229,39 @@ def test_mock_launcher_runs_without_key_or_sdk_and_rejects_paid_pilot(tmp_path):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="PowerShell launcher is Windows-only")
+def test_local_launcher_selects_local_chat_and_restores_model_without_key(tmp_path):
+    import os
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    package = tmp_path / "hope_brain"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "cli.py").write_text(
+        "import os, sys\n"
+        "assert os.environ['HOPE_OLLAMA_MODEL'] == 'qwen3:4b'\n"
+        "assert sys.argv[1:] == ['--provider', 'ollama', '--chat']\n"
+        "assert not os.environ.get('ANTHROPIC_API_KEY')\n"
+        "print('local launcher probe', file=sys.stderr)\n", encoding="utf-8",
+    )
+    launcher = str(root / "scripts" / "Start-Mira.ps1").replace("'", "''")
+    command = (
+        f"& '{launcher}' -Local; $childExit = $LASTEXITCODE; "
+        "if ($env:HOPE_OLLAMA_MODEL -ne 'original-local-model') { exit 92 }; exit $childExit"
+    )
+    env = {key: value for key, value in os.environ.items() if key != "ANTHROPIC_API_KEY"}
+    env.update({"PYTHONPATH": str(tmp_path), "HOPE_OLLAMA_MODEL": "original-local-model"})
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+        capture_output=True, text=True, timeout=20, check=False, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "local launcher probe" in result.stderr
+    assert "API key (hidden" not in result.stdout + result.stderr
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="PowerShell launcher is Windows-only")
 def test_launcher_restores_environment_on_child_failure_without_logging_key(tmp_path):
     import os
     import subprocess

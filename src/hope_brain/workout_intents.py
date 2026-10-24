@@ -53,9 +53,12 @@ ERROR_MESSAGES = {
 
 
 class WorkoutController:
-    def __init__(self, repository: WorkoutRepository, actor: Actor) -> None:
+    def __init__(
+        self, repository: WorkoutRepository, actor: Actor, *, general_chat: bool = False
+    ) -> None:
         self.repository = repository
         self.actor = actor
+        self.general_chat = general_chat
 
     def _reply(
         self, state: WorkoutState | None, *segments: SpeechSegment, record_count: bool = False
@@ -92,6 +95,8 @@ class WorkoutController:
             "explain your maths",
             "that makes no sense",
         }
+        if self.general_chat and words in {"explain your maths", "that makes no sense"}:
+            status = False
         target_query = words == "what's my target"
         history = words in {"/workout history", "did you just move my target"}
         callback = re.fullmatch(
@@ -101,13 +106,17 @@ class WorkoutController:
         extension = words == "just 3 more"
         command = words == "/workout" or words.startswith("/workout ")
         if not (status or target_query or history or callback or increment or extension or command):
-            if re.search(r"\b(reps?|workout|target)\b", words):
+            if not self.general_chat and re.search(r"\b(reps?|workout|target)\b", words):
                 return self._reply(
                     self.repository.get(self.actor),
                     say("Please use a workout command so I don't guess your intent."),
                 )
             return None
         state = self.repository.get(self.actor)
+        if self.general_chat and state is None and words in {
+            "how many left", "what's my target", "just 3 more"
+        }:
+            return None
         if target_query:
             if state is None:
                 return self._status(None)

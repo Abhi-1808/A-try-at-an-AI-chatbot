@@ -5,6 +5,12 @@ validated versioned events, an async provider interface, a deterministic mock,
 a development intake policy, and a multi-turn NDJSON CLI. Prompt 02 adds an optional Anthropic adapter.
 Mock mode uses no API keys or network services.
 
+For open-ended answers and follow-up questions without a paid API key, use
+[local chat with Ollama](docs/local_chat.md). After installing the runtime and
+downloading a model, launch `& .\scripts\Start-Mira.ps1 -Local`. This mode retains
+recent conversation in RAM and supports `/clear`. Mock mode remains scripted.
+See the [local-chat review](docs/local_chat_review.md) for exact verification and limitations.
+
 ## Setup (Windows PowerShell)
 
 Python 3.12 or 3.13 and `uv` are needed. Python 3.12.8 was used here because

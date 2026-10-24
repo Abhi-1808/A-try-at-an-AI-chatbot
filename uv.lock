@@ -87,16 +87,20 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+local = [
+    { name = "httpx2" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = "==2.3.0" },
+    { name = "httpx2", marker = "extra == 'local'", specifier = "==2.16.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.20.2,<2" },
     { name = "pydantic", specifier = ">=2.10,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8,<10" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9,<1" },
 ]
-provides-extras = ["dev", "anthropic"]
+provides-extras = ["dev", "anthropic", "local"]
 
 [[package]]
 name = "httpcore2"

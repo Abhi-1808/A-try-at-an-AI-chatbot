@@ -14,17 +14,18 @@ from uuid import uuid4
 from hope_brain.contracts import BrainEvent, BrainTurnRequest, brain_event_adapter
 from hope_brain.orchestrator import TurnOrchestrator
 from hope_brain.provider import DeterministicMockProvider, ModelProvider
-from hope_brain.settings import AnthropicSettings, ConfigurationError
+from hope_brain.settings import AnthropicSettings, ConfigurationError, OllamaSettings
 from hope_brain.workout import Actor, WorkoutError
 from hope_brain.workout_store import SQLiteWorkoutRepository
 
 if TYPE_CHECKING:
     from hope_brain.anthropic_provider import AnthropicProvider as LiveProvider
+    from hope_brain.ollama_provider import OllamaProvider as LocalProvider
 
 
 async def run() -> int:
     parser = argparse.ArgumentParser(description="Project Hope brain")
-    parser.add_argument("--provider", choices=["mock", "anthropic"], default="mock")
+    parser.add_argument("--provider", choices=["mock", "anthropic", "ollama"], default="mock")
     parser.add_argument(
         "--live-smoke", action="store_true", help="Explicitly run one paid test turn"
     )
@@ -38,6 +39,7 @@ async def run() -> int:
         parser.error("--live-pilot requires --provider anthropic and excludes --live-smoke")
 
     live: LiveProvider | None = None
+    local: LocalProvider | None = None
     provider: ModelProvider = DeterministicMockProvider()
     if args.provider == "anthropic":
         try:
@@ -60,6 +62,27 @@ async def run() -> int:
         except Exception:  # noqa: BLE001 - never expose SDK configuration or credentials
             parser.error("Could not initialize the live provider. Check your configuration.")
 
+    if args.provider == "ollama":
+        try:
+            local_settings = OllamaSettings.from_env()
+            from hope_brain.ollama_provider import OllamaProvider
+
+            local = OllamaProvider(local_settings)
+            await local.check_ready()
+            provider = local
+        except ImportError:
+            if local is not None:
+                await local.aclose()
+            parser.error("Install the local extra to use --provider ollama; see docs/local_chat.md.")
+        except ConfigurationError as error:
+            if local is not None:
+                await local.aclose()
+            parser.error(str(error))
+        except Exception:  # noqa: BLE001 - do not print server error bodies
+            if local is not None:
+                await local.aclose()
+            parser.error("Could not initialize local chat. See docs/local_chat.md.")
+
     logging.basicConfig(
         level=logging.WARNING if args.chat else logging.INFO,
         stream=sys.stderr, format="%(message)s",
@@ -72,9 +95,16 @@ async def run() -> int:
     except (sqlite3.Error, WorkoutError):
         if live is not None:
             await live.aclose()
+        if local is not None:
+            await local.aclose()
         parser.error("Could not open workout storage. Check the path and permissions.")
-    orchestrator = TurnOrchestrator(provider, workouts=workouts, actor=actor)
+    orchestrator = TurnOrchestrator(
+        provider, workouts=workouts, actor=actor, conversational=args.provider == "ollama"
+    )
     print("Enter a sentence, or /quit to exit.", file=sys.stderr)
+    if local is not None:
+        print("Local chat remembers recent turns in memory. /clear clears the conversation.",
+              file=sys.stderr)
     exit_code = 0
 
     def emit(event: BrainEvent) -> None:
@@ -119,6 +149,8 @@ async def run() -> int:
         workouts.close()
         if live is not None:
             await live.aclose()
+        if local is not None:
+            await local.aclose()
     return exit_code
 
 

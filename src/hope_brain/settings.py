@@ -51,3 +51,30 @@ class AnthropicSettings(BaseModel):
         return (
             input_tokens * self.input_usd_per_million + output_tokens * self.output_usd_per_million
         ) / Decimal(1_000_000)
+
+
+class OllamaSettings(BaseModel):
+    """Local inference only: no API key, arbitrary host URL or paid fallback."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    model: str = Field(default="qwen3:4b", min_length=1, max_length=200, pattern=r"^[\w./:-]+$")
+    port: int = Field(default=11434, ge=1, le=65535)
+    max_tokens: int = Field(default=768, ge=64, le=2048)
+    timeout_seconds: float = Field(default=180, gt=0, le=300, allow_inf_nan=False)
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> "OllamaSettings":
+        source = os.environ if env is None else env
+        names = {
+            "model": "HOPE_OLLAMA_MODEL", "port": "HOPE_OLLAMA_PORT",
+            "max_tokens": "HOPE_OLLAMA_MAX_TOKENS", "timeout_seconds": "HOPE_OLLAMA_TIMEOUT_SECONDS",
+        }
+        values = {field: source[name].strip() for field, name in names.items() if name in source}
+        try:
+            result = cls.model_validate(values)
+        except ValidationError as error:
+            invalid = sorted({names[str(item["loc"][0])] for item in error.errors()})
+            raise ConfigurationError("Set valid local settings: " + ", ".join(invalid)) from None
+        if "cloud" in result.model.casefold():
+            raise ConfigurationError("HOPE_OLLAMA_MODEL must be a locally downloaded model.")
+        return result

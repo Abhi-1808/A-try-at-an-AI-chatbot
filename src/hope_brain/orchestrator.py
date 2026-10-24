@@ -3,12 +3,13 @@
 import asyncio
 import logging
 import sqlite3
+from collections import deque
 from collections.abc import AsyncIterator, Sequence
 from uuid import uuid4
 
 from pydantic import ValidationError
 
-from hope_brain.context import TrustedContext, WorkoutContext
+from hope_brain.context import ConversationExchange, TrustedContext, WorkoutContext
 from hope_brain.contracts import (
     BrainEvent,
     BrainTurnRequest,
@@ -37,15 +38,37 @@ class TurnOrchestrator:
         *,
         workouts: WorkoutRepository | None = None,
         actor: Actor | None = None,
+        conversational: bool = False,
     ) -> None:
         if (workouts is None) != (actor is None):
             raise ValueError("workout repository and trusted actor must be supplied together")
+        if conversational and actor is None:
+            raise ValueError("conversation history requires an authorized session")
+        self.conversational = conversational
+        self._history: deque[ConversationExchange] = deque()
         self.provider = provider
         self.workout = (
-            WorkoutController(workouts, actor) if workouts is not None and actor else None
+            WorkoutController(workouts, actor, general_chat=conversational)
+            if workouts is not None and actor else None
         )
 
     async def stream(
+        self, request: BrainTurnRequest, cancel: asyncio.Event | None = None
+    ) -> AsyncIterator[BrainEvent]:
+        delivered: list[SpeechSegment] = []
+        async for event in self._stream(request, cancel):
+            if event.type == "speech.segment":
+                delivered.append(event.segment.model_copy(deep=True))
+            if (
+                self.conversational and event.type == "turn.completed"
+                and request.text.strip().casefold() != "/clear"
+            ):
+                self._history.append(ConversationExchange(request.text, tuple(delivered)))
+                while len(self._history) > 8 or sum(t.size_bytes for t in self._history) > 12_000:
+                    self._history.popleft()
+            yield event
+
+    async def _stream(
         self, request: BrainTurnRequest, cancel: asyncio.Event | None = None
     ) -> AsyncIterator[BrainEvent]:
         turn_id = str(uuid4())
@@ -99,7 +122,17 @@ class TurnOrchestrator:
             try:
                 # Authenticate the bound scope even for a non-workout conversation turn.
                 state = self.workout.repository.get(self.workout.actor)
-                context = TrustedContext(WorkoutContext.from_state(state) if state else None)
+                context = TrustedContext(
+                    WorkoutContext.from_state(state) if state else None, tuple(self._history)
+                )
+                if self.conversational and request.text.strip().casefold() == "/clear":
+                    self._history.clear()
+                    yield SpeechEvent(
+                        turn_id=turn_id, seq=seq + 1,
+                        segment=say("Conversation history cleared. Your workout state is unchanged."),
+                    )
+                    yield TurnCompleted(turn_id=turn_id, seq=seq + 2)
+                    return
                 reply = self.workout.handle(request.text, request.submission_id)
             except WorkoutError as error:
                 seq += 1
