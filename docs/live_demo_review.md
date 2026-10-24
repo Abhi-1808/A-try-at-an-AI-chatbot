@@ -97,3 +97,34 @@ before this review was added; no credentials or runtime artifacts are staged.
 Next small task: the user runs `& .\scripts\Start-Mira.ps1 -Pilot` and reviews
 the five replies against [the rubric](live_demo.md). Use those observations to
 choose one targeted persona/context adjustment before expanding the evaluation.
+
+## Follow-up terminal checks — 24 October 2026
+
+At the user's request, exercised eight actual CLI subprocess runs with 34 turns
+using `& .\.venv312\Scripts\python.exe -m hope_brain.cli --provider mock --chat`.
+Inputs covered greetings, AI identity, departure, 10/12 rep arithmetic, pending
+targets, chest tightness, dizziness, conversation/exercise stops, invalid actions,
+Unicode punctuation and interactive target confirmation. Validated every stdout
+event, sequence numbering and exactly one terminal event per turn.
+
+Two UI defects found during the first six runs were corrected: conversation-only
+stop speech incorrectly implied stopping the activity, and chat mode hid the
+proposal ID needed to approve a target. The chat display now shows the complete
+confirmation command. Two follow-up runs verified both fixes, including copying
+the displayed command and confirming that target 12 becomes 15 only on approval.
+
+Changed `cli.py`, `policy.py`, three regression test files, `workout_commands.md`
+and this review. Final commands/results:
+
+```powershell
+& .\.venv312\Scripts\python.exe -m pytest -q
+# 182 passed in 10.85s
+& .\.venv312\Scripts\ruff.exe check .
+# All checks passed!
+& .\.venv312\Scripts\python.exe -m mypy src/hope_brain
+# Success: no issues found in 14 source files
+git diff --check
+# Exit 0
+```
+
+These were offline terminal runs; no paid API calls or real-persona measurements.

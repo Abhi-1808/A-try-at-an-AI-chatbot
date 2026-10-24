@@ -21,7 +21,9 @@ Start the offline CLI:
 | Stop talking | Cancel conversation without changing workout state |
 
 Supported exercise names: pushups, squats, situps, pullups. Copy PROPOSAL_ID
-from workout.state.state.pending_proposal.proposal_id. An unqualified yes does
+from workout.state.state.pending_proposal.proposal_id. With `--chat` (including
+the PowerShell launcher), the terminal shows the complete confirmation command
+beside each pending proposal; copy that command to approve it. An unqualified yes does
 not change a goal. Neither does a model suggestion. Just 3 more creates a
 proposal only, within the two-increase/three-rep cap.
 

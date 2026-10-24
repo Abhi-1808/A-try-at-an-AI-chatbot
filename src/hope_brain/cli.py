@@ -81,6 +81,14 @@ async def run() -> int:
         print(brain_event_adapter.dump_json(event).decode("utf-8"), flush=True)
         if args.chat and event.type == "speech.segment":
             print(f"Mira: {event.segment.text}", file=sys.stderr, flush=True)
+        if args.chat and event.type == "workout.state" and event.state is not None:
+            proposal = event.state.pending_proposal
+            if proposal is not None:
+                print(
+                    f"To approve target {proposal.new_target}, enter: "
+                    f"/workout confirm {proposal.proposal_id}",
+                    file=sys.stderr, flush=True,
+                )
         if args.chat and event.type == "turn.failed":
             print(f"Turn failed: {event.reason}", file=sys.stderr, flush=True)
 

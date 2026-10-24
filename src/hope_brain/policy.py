@@ -47,14 +47,18 @@ def intake_policy(text: str) -> PolicyDecision | None:
             stop_workout=True,
         )
     if _STOP_ACTIVITY.search(text):
+        conversation_stop = bool(re.search(r"\b(talking|chatting|responding)\b", text, re.IGNORECASE))
         return PolicyDecision(
             segment=SpeechSegment(
-                text="Okay. We'll stop this activity now.",
+                text=(
+                    "Okay. I'll stop talking now."
+                    if conversation_stop else "Okay. We'll stop this activity now."
+                ),
                 emotion=Emotion.TENDER,
                 intensity=0.3,
             ),
             terminal="cancelled",
             reason="user_stop",
-            stop_workout=not bool(re.search(r"\b(talking|chatting|responding)\b", text, re.IGNORECASE)),
+            stop_workout=not conversation_stop,
         )
     return None

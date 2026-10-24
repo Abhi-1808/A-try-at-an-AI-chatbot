@@ -163,7 +163,9 @@ def test_preference_and_chat_stop_leave_workout_alone(brain):
     brain[0].provider = DeterministicMockProvider()
     assert turn(brain, "Stop calling me sir")[-1].type == "turn.completed"
     assert brain[1].get(brain[2]).status == "active"
-    assert turn(brain, "Stop talking")[-1].type == "turn.cancelled"
+    stopped = turn(brain, "Stop talking")
+    assert stopped[-1].type == "turn.cancelled"
+    assert speech(stopped) == "Okay. I'll stop talking now."
     assert brain[1].get(brain[2]).status == "active"
 
 

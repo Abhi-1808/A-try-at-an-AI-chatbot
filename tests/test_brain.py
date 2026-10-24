@@ -227,7 +227,9 @@ def test_cancellation_between_segments_stops_remaining_speech():
 
 @pytest.mark.parametrize("text", ["stop talking", "stop chatting", "stop responding"])
 def test_clear_conversation_stop(text):
-    assert turn(text)[-1].type == "turn.cancelled"
+    events = turn(text)
+    assert events[-1].type == "turn.cancelled"
+    assert events[1].segment.text == "Okay. I'll stop talking now."
 
 
 @pytest.mark.parametrize("candidates", [[], None, "hello", [{}], [{"text": "secret"}]])

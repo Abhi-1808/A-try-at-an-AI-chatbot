@@ -104,6 +104,41 @@ def test_chat_keeps_stdout_valid_ndjson(monkeypatch, capsys):
     assert "Mira:" not in output.out
 
 
+@pytest.mark.parametrize("chat", [True, False])
+def test_terminal_proposal_can_be_confirmed_from_displayed_command(chat, monkeypatch, capsys):
+    import re
+
+    monkeypatch.setattr(sys, "argv", ["hope", *(["--chat"] if chat else [])])
+
+    def lines():
+        yield "/workout start squats 12\n"
+        yield "/workout propose 15\n"
+        captured = capsys.readouterr()
+        events = [brain_event_adapter.validate_json(line) for line in captured.out.splitlines()]
+        state = [e.state for e in events if e.type == "workout.state"][-1]
+        assert state.target == 12
+        proposal = state.pending_proposal
+        command = f"/workout confirm {proposal.proposal_id}"
+        if chat:
+            shown = re.search(r"/workout confirm [0-9a-f-]+", captured.err)
+            assert shown is not None and shown.group() == command
+            yield shown.group() + "\n"
+        else:
+            assert "To approve target" not in captured.err
+            yield command + "\n"
+        yield "/workout status\n"
+        yield "/quit\n"
+
+    monkeypatch.setattr(sys, "stdin", lines())
+    assert asyncio.run(cli.run()) == 0
+    captured = capsys.readouterr()
+    events = [brain_event_adapter.validate_json(line) for line in captured.out.splitlines()]
+    states = [e.state for e in events if e.type == "workout.state"]
+    assert all(s.target == 15 and s.pending_proposal is None for s in states)
+    assert sum(e.type == "turn.completed" for e in events) == 2
+    assert "To approve target" not in captured.err
+
+
 @pytest.mark.parametrize("arguments", [
     ["--live-pilot"], ["--provider", "anthropic", "--live-pilot", "--live-smoke"],
 ])
