@@ -22,6 +22,7 @@ class OllamaProvider:
         self.settings = settings
         self.url = f"http://127.0.0.1:{settings.port}"
         self.context_builder = ContextBuilder(conversational=True)
+        self.last_metrics: dict[str, str | float | int] = {}
         # Transport debug logs can expose request content. Metrics below are redacted.
         for name in {"httpx2", "httpcore2"} | set(logging.root.manager.loggerDict):
             if name.split(".")[0] in {"httpx2", "httpcore2"}:
@@ -86,7 +87,9 @@ class OllamaProvider:
         self, request: BrainTurnRequest, *, context: TrustedContext | None = None
     ) -> list[SpeechSegment]:
         started = perf_counter()
-        metrics: dict[str, str | float | int] = {"stage": "local_provider", "outcome": "error"}
+        metrics: dict[str, str | float | int] = {
+            "stage": "local_provider", "outcome": "error", "thinking_requested": 0,
+        }
         try:
             async with asyncio.timeout(self.settings.timeout_seconds):
                 if len(request.text.encode("utf-8")) > 8192:
@@ -121,6 +124,11 @@ class OllamaProvider:
                 ):
                     raise ValueError("invalid local message")
                 segments = CandidateReply.model_validate_json(message["content"]).segments
+                metrics["thinking_output_seen"] = int(bool(message.get("thinking")))
+                for name in ("load_duration", "prompt_eval_duration", "eval_duration"):
+                    duration = response.get(name)
+                    if type(duration) is int and duration >= 0:
+                        metrics[name.removesuffix("_duration") + "_ms"] = round(duration / 1e6, 3)
                 for name in ("prompt_eval_count", "eval_count"):
                     count = response.get(name)
                     if type(count) is int and count >= 0:
@@ -135,4 +143,5 @@ class OllamaProvider:
             raise TimeoutError("local model timeout") from None
         finally:
             metrics["total_ms"] = round((perf_counter() - started) * 1000, 3)
+            self.last_metrics = dict(metrics)
             logger.info(json.dumps(metrics, separators=(",", ":")))

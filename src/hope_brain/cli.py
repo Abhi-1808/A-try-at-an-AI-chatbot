@@ -8,6 +8,7 @@ import logging
 import sqlite3
 import sys
 from decimal import Decimal
+from time import perf_counter
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ from hope_brain.contracts import BrainEvent, BrainTurnRequest, brain_event_adapt
 from hope_brain.orchestrator import TurnOrchestrator
 from hope_brain.provider import DeterministicMockProvider, ModelProvider
 from hope_brain.settings import AnthropicSettings, ConfigurationError, OllamaSettings
+from hope_brain.terminal_input import TerminalInput
 from hope_brain.workout import Actor, WorkoutError
 from hope_brain.workout_store import SQLiteWorkoutRepository
 
@@ -101,11 +103,13 @@ async def run() -> int:
     orchestrator = TurnOrchestrator(
         provider, workouts=workouts, actor=actor, conversational=args.provider == "ollama"
     )
-    print("Enter a sentence, or /quit to exit.", file=sys.stderr)
+    print("Enter a message and press Enter; /quit exits. Run PowerShell commands outside Mira.",
+          file=sys.stderr)
     if local is not None:
-        print("Local chat remembers recent turns in memory. /clear clears the conversation.",
+        print("Local chat remembers recent turns in memory. /clear resets history and address.",
               file=sys.stderr)
     exit_code = 0
+    reader: TerminalInput | None = None
 
     def emit(event: BrainEvent) -> None:
         print(brain_event_adapter.dump_json(event).decode("utf-8"), flush=True)
@@ -133,19 +137,40 @@ async def run() -> int:
             )
             print(json.dumps(report, indent=2), file=sys.stderr, flush=True)
             return exit_code
-        lines = ["Hi"] if args.live_smoke else sys.stdin
-        for raw in lines:
-            text = raw.strip()
+        reader = TerminalInput(
+            ["Hi"] if args.live_smoke else sys.stdin,
+            lambda message: print(message, file=sys.stderr, flush=True),
+        )
+        async for incoming in reader:
+            text = incoming.text
             if text.casefold() == "/quit":
                 break
-            if not text:
-                continue
+            started = perf_counter()
+            first_segment = None
+            terminal = "incomplete"
             request = BrainTurnRequest(session_id=session_id, text=text)
             async for event in orchestrator.stream(request):
+                if event.type == "speech.segment" and first_segment is None:
+                    first_segment = perf_counter()
                 emit(event)
+                if event.type in {"turn.completed", "turn.failed", "turn.cancelled"}:
+                    terminal = event.type
                 if args.live_smoke and event.type in {"turn.failed", "turn.cancelled"}:
                     exit_code = 1
+            logging.getLogger(__name__).info(json.dumps({
+                "stage": "turn", "outcome": terminal,
+                "queue_ms": round((started - incoming.received_at) * 1000, 3),
+                "first_segment_ms": round((first_segment - started) * 1000, 3)
+                if first_segment is not None else None,
+                "input_to_first_segment_ms": round((first_segment - incoming.received_at) * 1000, 3)
+                if first_segment is not None else None,
+            }))
+            if args.chat:
+                print(f"Reply #{incoming.number}: {terminal.removeprefix('turn.')}.",
+                      file=sys.stderr, flush=True)
     finally:
+        if reader is not None:
+            reader.close()
         workouts.close()
         if live is not None:
             await live.aclose()

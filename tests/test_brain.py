@@ -180,7 +180,7 @@ def test_cli_multiple_turns_stdout_only_json():
     events = [brain_event_adapter.validate_python(json.loads(line)) for line in lines]
     assert [event.seq for event in events] == [1, 2, 3, 1, 2, 3]
     assert events[0].turn_id != events[3].turn_id
-    assert "Enter a sentence" in process.stderr
+    assert "press Enter" in process.stderr
 
 
 @pytest.mark.parametrize("mutated", [False, True])

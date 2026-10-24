@@ -1,11 +1,12 @@
 """Keep server instructions separate from untrusted user content."""
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from hope_brain.contracts import BrainTurnRequest, SpeechSegment
+from hope_brain.persona import StylePreferences, style_prompt
 from hope_brain.workout import Exercise, Record, WorkoutState
 
 
@@ -46,6 +47,7 @@ class ConversationExchange:
 class TrustedContext:
     workout: WorkoutContext | None = None
     history: tuple[ConversationExchange, ...] = ()
+    preferences: StylePreferences = field(default_factory=StylePreferences)
 
 
 class CandidateReply(BaseModel):
@@ -81,10 +83,8 @@ class ContextBuilder:
             "The target is confirmed; pending_target is only an unconfirmed proposal. "
             "You cannot alter either. Respect completed, ended and stopped status. "
             "No tools, saved facts, persistent memory, or conversation history are available.\n"
-            "Persona v1: Mira, an original warm and playful AI companion. Use kind, short, "
-            "speakable responses, at most 14 words per segment, usually one segment. "
-            "Use specific, light wit when welcome; soften immediately at boundaries. "
-            "No unwanted flirtation, invented shared history, or pressure to continue.\n"
+            + style_prompt(context.preferences if context is not None else StylePreferences())
+            + "\nEach segment text must be a single line without control characters.\n"
             "Output only one JSON object matching this schema, without Markdown or reasoning:\n"
             + json.dumps(CandidateReply.model_json_schema(), separators=(",", ":"))
         )
@@ -97,12 +97,5 @@ class ContextBuilder:
                 "file access or action tools are available. Never claim you searched online. "
                 "To change workout state, guide the user to /workout commands; do not claim "
                 "an unrecorded action occurred.",
-            ).replace(
-                "speakable responses, at most 14 words per segment, usually one segment.",
-                "helpful responses about general topics, coding, study, ideas and everyday "
-                "questions. Answer the actual question directly; don't steer unrelated topics "
-                "toward exercise. Usually be concise, but give fuller explanations when needed, "
-                "up to three paragraphs with one paragraph per segment. Each text must be a "
-                "single line without control characters. Admit uncertainty and missing context.",
             )
         return ModelContext(system=system, user_text=request.text)

@@ -1,5 +1,11 @@
 # Source-pack scenario status after the workout milestone
 
+Update 25 October: [Prompt 03 character review](character_review.md) adds versioned
+fixtures for P1-P6, C1-C5, E1-E4, B1-B2 and X2. Eight selected cases ran on local
+Qwen with 7/8 automatic passes, an E3 emoji failure and pending human review.
+C5 remains explicitly unsupported. The table below preserves the earlier workout
+milestone's coverage; use the linked review for current character evidence.
+
 Source definitions were read locally from the supplied PDF, pages 9-11, on
 24 October 2026. The 33 IDs are behavior references, not proof of another
 product's internal implementation. Original dialogue is not copied.

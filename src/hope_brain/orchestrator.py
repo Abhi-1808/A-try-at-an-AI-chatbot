@@ -23,7 +23,8 @@ from hope_brain.contracts import (
     TurnStarted,
     WorkoutStateEvent,
 )
-from hope_brain.policy import intake_policy
+from hope_brain.persona import StylePreferences, address_request
+from hope_brain.policy import intake_policy, looks_like_shell_command
 from hope_brain.provider import ModelProvider, ProviderBudgetExceeded
 from hope_brain.workout import Actor, WorkoutError, WorkoutRepository, WorkoutView
 from hope_brain.workout_intents import ERROR_MESSAGES, WorkoutController, say
@@ -46,6 +47,7 @@ class TurnOrchestrator:
             raise ValueError("conversation history requires an authorized session")
         self.conversational = conversational
         self._history: deque[ConversationExchange] = deque()
+        self._preferences = StylePreferences()
         self.provider = provider
         self.workout = (
             WorkoutController(workouts, actor, general_chat=conversational)
@@ -123,13 +125,36 @@ class TurnOrchestrator:
                 # Authenticate the bound scope even for a non-workout conversation turn.
                 state = self.workout.repository.get(self.workout.actor)
                 context = TrustedContext(
-                    WorkoutContext.from_state(state) if state else None, tuple(self._history)
+                    WorkoutContext.from_state(state) if state else None, tuple(self._history),
+                    self._preferences,
                 )
                 if self.conversational and request.text.strip().casefold() == "/clear":
                     self._history.clear()
+                    self._preferences = StylePreferences()
                     yield SpeechEvent(
                         turn_id=turn_id, seq=seq + 1,
-                        segment=say("Conversation history cleared. Your workout state is unchanged."),
+                        segment=say(
+                            "History cleared; address reset to sir. Your workout state is unchanged."
+                        ),
+                    )
+                    yield TurnCompleted(turn_id=turn_id, seq=seq + 2)
+                    return
+                if looks_like_shell_command(request.text):
+                    yield SpeechEvent(
+                        turn_id=turn_id, seq=seq + 1,
+                        segment=say("That looks like a PowerShell command. Run it outside Mira after /quit."),
+                    )
+                    yield TurnFailed(turn_id=turn_id, seq=seq + 2, reason="input_rejected")
+                    return
+                preference = address_request(request.text, self._preferences)
+                if preference is not None:
+                    self._preferences = preference
+                    yield SpeechEvent(
+                        turn_id=turn_id, seq=seq + 1,
+                        segment=say(
+                            f"Got it. I'll call you {preference.address}."
+                            if preference.address is not None else "Of course. I'll drop that title."
+                        ),
                     )
                     yield TurnCompleted(turn_id=turn_id, seq=seq + 2)
                     return

@@ -105,38 +105,46 @@ def test_chat_keeps_stdout_valid_ndjson(monkeypatch, capsys):
 
 
 @pytest.mark.parametrize("chat", [True, False])
-def test_terminal_proposal_can_be_confirmed_from_displayed_command(chat, monkeypatch, capsys):
+def test_terminal_proposal_can_be_confirmed_from_displayed_command(chat, tmp_path):
     import re
+    import subprocess
+    from threading import Timer
 
-    monkeypatch.setattr(sys, "argv", ["hope", *(["--chat"] if chat else [])])
-
-    def lines():
-        yield "/workout start squats 12\n"
-        yield "/workout propose 15\n"
-        captured = capsys.readouterr()
-        events = [brain_event_adapter.validate_json(line) for line in captured.out.splitlines()]
-        state = [e.state for e in events if e.type == "workout.state"][-1]
-        assert state.target == 12
-        proposal = state.pending_proposal
-        command = f"/workout confirm {proposal.proposal_id}"
-        if chat:
-            shown = re.search(r"/workout confirm [0-9a-f-]+", captured.err)
-            assert shown is not None and shown.group() == command
-            yield shown.group() + "\n"
-        else:
-            assert "To approve target" not in captured.err
-            yield command + "\n"
-        yield "/workout status\n"
-        yield "/quit\n"
-
-    monkeypatch.setattr(sys, "stdin", lines())
-    assert asyncio.run(cli.run()) == 0
-    captured = capsys.readouterr()
-    events = [brain_event_adapter.validate_json(line) for line in captured.out.splitlines()]
-    states = [e.state for e in events if e.type == "workout.state"]
-    assert all(s.target == 15 and s.pending_proposal is None for s in states)
-    assert sum(e.type == "turn.completed" for e in events) == 2
-    assert "To approve target" not in captured.err
+    errpath = tmp_path / "terminal.txt"
+    with errpath.open("w", encoding="utf-8") as error_output, subprocess.Popen(
+        [sys.executable, "-m", "hope_brain.cli", *(["--chat"] if chat else [])],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=error_output,
+        encoding="utf-8", bufsize=1,
+    ) as process:
+        timer = Timer(10, process.kill)
+        timer.start()
+        try:
+            process.stdin.write("/workout start squats 12\n/workout propose 15\n")
+            process.stdin.flush()
+            initial = []
+            while sum(e.type == "turn.completed" for e in initial) < 2:
+                line = process.stdout.readline()
+                assert line, "CLI exited before proposal was delivered"
+                initial.append(brain_event_adapter.validate_json(line))
+            state = [e.state for e in initial if e.type == "workout.state"][-1]
+            assert state.target == 12
+            command = f"/workout confirm {state.pending_proposal.proposal_id}"
+            shown = errpath.read_text(encoding="utf-8")
+            if chat:
+                match = re.search(r"/workout confirm [0-9a-f-]+", shown)
+                assert match is not None and match.group() == command
+                command = match.group()
+            else:
+                assert "To approve target" not in shown
+            output, _ = process.communicate(command + "\n/workout status\n/quit\n", timeout=8)
+            assert process.returncode == 0
+            events = [brain_event_adapter.validate_json(line) for line in output.splitlines()]
+            states = [e.state for e in events if e.type == "workout.state"]
+            assert len(states) == 2
+            assert all(s.target == 15 and s.pending_proposal is None for s in states)
+            assert sum(e.type == "turn.completed" for e in events) == 2
+        finally:
+            timer.cancel()
 
 
 @pytest.mark.parametrize("arguments", [

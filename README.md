@@ -72,3 +72,13 @@ See [milestone review](docs/milestone_01_review.md) for verified results and rem
 Current progress and verification: [Prompt 02 review](docs/milestone_02_review.md).
 
 [Workout review](docs/milestone_04_review.md) and [voice entry gates](docs/release_gates.md).
+
+Mira now uses a [versioned character bible](docs/character_bible_v1.md), session
+address preferences and visible input queues. Run the free local
+[eight-scenario character pilot](docs/character_eval.md) with:
+
+```powershell
+& .\.venv312\Scripts\python.exe -m hope_brain.character_eval --provider ollama --pilot --report local_data/character-pilot.json
+```
+
+Results and limitations: [character review](docs/character_review.md).

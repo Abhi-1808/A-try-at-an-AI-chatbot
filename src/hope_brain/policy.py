@@ -30,6 +30,17 @@ _STOP_ACTIVITY = re.compile(
     re.IGNORECASE,
 )
 
+_SHELL_COMMAND = re.compile(
+    r"^\s*(?:&\s|\$env:|PS\s+[A-Z]:\\|\.\\[^\s]+\.ps1\b|"
+    r"(?:ollama\s+(?:serve|pull|run|list|ls|ps)|uv\s+(?:sync|run)|"
+    r"(?:python|python3|python\.exe)\s+-(?:m|c)\b|Set-Location\b|pip\s+install\b))",
+    re.IGNORECASE,
+)
+
+
+def looks_like_shell_command(text: str) -> bool:
+    return bool(_SHELL_COMMAND.search(text))
+
 
 def intake_policy(text: str) -> PolicyDecision | None:
     """Recognize a narrow set of clear safety and stop intents."""

@@ -69,6 +69,7 @@ class TurnCompleted(EventBase):
 
 
 type FailureReason = Literal[
+    "input_rejected",
     "provider_invalid",
     "provider_error",
     "provider_timeout",

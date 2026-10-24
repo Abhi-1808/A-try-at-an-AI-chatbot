@@ -101,6 +101,9 @@ def test_general_reply_uses_schema_loopback_history_and_redacted_logs(caplog):
     for text in [REQUEST.text, "private prior", "private reasoning", "Earlier answer", result[0].text]:
         assert text not in caplog.text
     assert '"eval_count":30' in caplog.text
+    assert local.last_metrics["thinking_requested"] == 0
+    assert local.last_metrics["thinking_output_seen"] == 1
+    assert "private reasoning" not in json.dumps(local.last_metrics)
 
 
 @pytest.mark.parametrize("reply", [

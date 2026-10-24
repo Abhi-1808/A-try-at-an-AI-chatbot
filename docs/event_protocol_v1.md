@@ -34,3 +34,10 @@ consume its state event and preserve submission IDs on any transport retry.
 BrainTurnRequest now carries an application-generated submission_id UUID. Preserve
 it across redelivery; a new line typed in the CLI is a new submission. Authorization
 comes from the orchestrator's bound Actor, not from model output or this ID.
+
+## Terminal input extension (Prompt 03)
+
+`turn.failed` additionally supports `input_rejected` for recognized pasted shell
+commands. A short explanation can precede that terminal event; the text never
+reaches the model. Input acceptance, queue overflow and reply-number notices are
+stderr diagnostics, not BrainEvent records. `/quit` is a CLI control, not a turn.
