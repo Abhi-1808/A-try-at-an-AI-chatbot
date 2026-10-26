@@ -3,6 +3,7 @@
 import os
 from collections.abc import Mapping
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
@@ -16,6 +17,7 @@ class AnthropicSettings(BaseModel):
 
     api_key: SecretStr = Field(repr=False)
     model: str = Field(min_length=1, max_length=200, pattern=r"^\S+$")
+    thinking_mode: Literal["disabled", "between_tools"] = "disabled"
     max_tokens: int = Field(default=256, ge=1, le=4096)
     timeout_seconds: float = Field(default=30, gt=0, le=120, allow_inf_nan=False)
     turn_budget_usd: Decimal = Field(gt=0, allow_inf_nan=False)
@@ -29,6 +31,7 @@ class AnthropicSettings(BaseModel):
         names = {
             "api_key": "ANTHROPIC_API_KEY",
             "model": "HOPE_ANTHROPIC_MODEL",
+            "thinking_mode": "HOPE_ANTHROPIC_THINKING_MODE",
             "max_tokens": "HOPE_MAX_TOKENS",
             "timeout_seconds": "HOPE_TIMEOUT_SECONDS",
             "turn_budget_usd": "HOPE_TURN_BUDGET_USD",

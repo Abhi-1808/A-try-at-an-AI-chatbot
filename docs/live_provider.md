@@ -1,8 +1,9 @@
 # Optional Anthropic mode
 
 Mock is the default and requires no key, SDK, or network. Choosing
-`--provider anthropic` opts into sending each current message to Anthropic
-and potentially paid generation. No live API call is part of default tests.
+`--provider anthropic` opts into sending the current message, bounded recent
+conversation, address preference and authorized workout context to Anthropic for
+token counting and potentially paid generation. No live API call is part of tests.
 
 ## Installation
 
@@ -24,6 +25,7 @@ the app does not automatically read `.env` files.
 | --- | --- |
 | ANTHROPIC_API_KEY | Required only in live mode; load privately into your process environment |
 | HOPE_ANTHROPIC_MODEL | Required model ID you have access to; no default |
+| HOPE_ANTHROPIC_THINKING_MODE | `disabled` by default; `between_tools` for the prepared Sonnet 5.5 text-only path; adaptive/thinking/tool output not supported |
 | HOPE_MAX_TOKENS | Default 256; integer 1-4096 |
 | HOPE_TIMEOUT_SECONDS | Default 30; total timeout greater than 0 and at most 120 seconds |
 | HOPE_TURN_BUDGET_USD | Required positive per-turn estimated spend limit |
@@ -37,6 +39,7 @@ model/prices and sets a one-cent estimated per-turn limit:
 
 ```powershell
 $env:HOPE_ANTHROPIC_MODEL = Read-Host 'Model ID'
+$env:HOPE_ANTHROPIC_THINKING_MODE = Read-Host 'Text-only mode: disabled or between_tools (Sonnet 5.5)'
 $env:HOPE_INPUT_USD_PER_MILLION = Read-Host 'Input USD per million tokens'
 $env:HOPE_OUTPUT_USD_PER_MILLION = Read-Host 'Output USD per million tokens'
 $env:HOPE_TURN_BUDGET_USD = '0.01'
@@ -45,6 +48,14 @@ $env:HOPE_MAX_TOKENS = '256'
 $env:HOPE_TIMEOUT_SECONDS = '30'
 & .\.venv312\Scripts\python.exe -m hope_brain.cli --provider anthropic
 ```
+
+The [launcher](live_demo.md) prepares `claude-sonnet-5-5` with `between_tools`.
+This model rejects `disabled`; without tools, the documented `between_tools`
+response is text only. The installed SDK supports the setting, and offline tests
+verify both count/generation requests use it. Model access and live compatibility
+remain unverified. Models requiring always-on thinking need adapter work first;
+an arbitrary accepted model ID does not mean its output is supported.
+Checked 2026-10-26: [Sonnet changes](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5).
 
 The preflight estimate is `(reserved_input * input_rate + max_tokens * output_rate)
 / 1,000,000`, with `reserved_input = ceil(count * 1.10) + 64`. Above-budget turns
@@ -57,10 +68,17 @@ observed estimate overrun. A process restart resets the allowance; concurrent
 processes have separate allowances. Use provider account limits for account-wide control.
 
 Input is limited to 16,384 UTF-8 bytes before even the token-count request. Both
-counting and generation receive current text and the trusted system prompt.
+counting and generation receive identical dialogue and the trusted system prompt.
 An authorized workout snapshot is also sent when available, without identity,
-receipt IDs or timestamps. No conversation history, session ID, saved personal
-memory or tool call is sent. The model cannot mutate workout state.
+receipt IDs or timestamps. The CLI keeps up to 8 completed exchanges / 12,000
+UTF-8 bytes in RAM, scoped to its authorized actor/session, and sends them as
+ordinary user/assistant messages. Failed/cancelled turns are excluded. No internal
+session ID, saved personal memory or tool call is sent. Message text itself may
+contain personal information the user supplies. The model cannot mutate workout state.
+
+`/clear` resets this local history and the address preference, preserves workout
+state and makes no API call. It cannot delete context already sent to Anthropic.
+Closing/restarting the CLI loses this history; it is not Prompt 05 memory.
 
 ## Verification
 

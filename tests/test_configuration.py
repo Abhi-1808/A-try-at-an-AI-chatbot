@@ -44,6 +44,8 @@ def test_settings_require_explicit_key_model_and_prices():
         ("HOPE_INPUT_USD_PER_MILLION", "0"),
         ("HOPE_OUTPUT_USD_PER_MILLION", "bad-secret"),
         ("HOPE_ANTHROPIC_MODEL", ""),
+        ("HOPE_ANTHROPIC_THINKING_MODE", "bad-secret"),
+        ("HOPE_ANTHROPIC_THINKING_MODE", "adaptive"),
         ("ANTHROPIC_API_KEY", "  "),
     ],
 )
@@ -58,6 +60,12 @@ def test_invalid_settings_never_expose_values(name, value):
 
 def test_secret_not_in_settings_repr():
     assert "test-secret" not in repr(AnthropicSettings.from_env(live_env()))
+
+
+def test_cloud_thinking_modes_are_explicit_and_text_only():
+    assert AnthropicSettings.from_env(live_env()).thinking_mode == "disabled"
+    env = live_env() | {"HOPE_ANTHROPIC_THINKING_MODE": "between_tools"}
+    assert AnthropicSettings.from_env(env).thinking_mode == "between_tools"
 
 
 def test_user_text_cannot_replace_trusted_context():

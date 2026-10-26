@@ -41,11 +41,11 @@ For a later full evaluation, include every generation/judge attempt in one budge
 verify then-current pricing, and set an account-wide limit separately. Process
 restarts currently reset local accounting; this is not an account-level spend cap.
 
-Pricing checked against the official page on 24 October 2026. It lists standard
-Claude Haiku 4.5 at USD 1 input / USD 5 output per million tokens, and Claude
-Sonnet 4.6 at USD 3 / USD 15. These are reference examples, not a selected model
-or an inferred account rate. Recheck before execution; pricing features and tiers
-can change. Source: https://platform.claude.com/docs/en/about-claude/pricing
+The revised launcher selects Claude Sonnet 5.5 at USD 2 input / USD 10 output per
+million tokens, checked 26 October 2026 against the
+[official comparison](https://platform.claude.com/docs/en/models/overview).
+This is a prepared candidate, not a live-validated model. Recheck account access
+and applicable rates before execution; pricing features and tiers can change.
 
 For successful calls, compute estimated actual usage cost from returned input
 and output tokens at configured rates, and compare with the preflight estimate.
@@ -53,10 +53,15 @@ Record missing usage on cancellations/failures as unknown, not zero. Token usage
 is not a billing invoice. Report call count, model, rates/date, budget consumed,
 unknown-cost calls, p50/p95, workload, hardware and sample size.
 
-The paid pilot is parked because the user has no paid key. The user installed a
-local model; Prompt 03 now has a bible, versioned corpus and an observed eight-case
-pilot. See [actual review](character_review.md). Next is targeted character refinement
-and human review, not a voice milestone.
+The user now prioritizes a frontier cloud main brain; the paid pilot is relevant
+again but still awaits credentials, credits and explicit execution. No live result
+is claimed. Cloud history parity and the Sonnet text-only configuration are prepared;
+see [cloud-readiness review](cloud_readiness_review.md) and the
+[revised architecture](architecture_v2.md). A cloud model alone does not establish
+the 700 ms gate: the count preflight and full-response buffer still contribute.
+The installed local model remains useful for offline development. Prompt 03 has
+a bible, versioned corpus and an observed eight-case pilot; see
+[actual review](character_review.md).
 The [26 October refinement](character_refinement_review.md) adds an 8/8 pilot and
 4/4 supplemental mechanical result, while documenting echoed inputs and weak humor.
 These narrow scores do not close the overall persona or full safety gates.

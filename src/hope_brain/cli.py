@@ -101,12 +101,17 @@ async def run() -> int:
             await local.aclose()
         parser.error("Could not open workout storage. Check the path and permissions.")
     orchestrator = TurnOrchestrator(
-        provider, workouts=workouts, actor=actor, conversational=args.provider == "ollama"
+        provider, workouts=workouts, actor=actor,
+        conversational=args.provider in {"anthropic", "ollama"},
     )
     print("Enter a message and press Enter; /quit exits. Run PowerShell commands outside Mira.",
           file=sys.stderr)
-    if local is not None:
-        print("Local chat remembers recent turns in memory. /clear resets history and address.",
+    if local is not None or live is not None:
+        print("Chat remembers recent turns in memory. /clear resets history and address.",
+              file=sys.stderr)
+    if live is not None:
+        print("Cloud chat sends current text, recent dialogue and authorized workout context "
+              "to Anthropic for token counting and replies. /clear clears local history only.",
               file=sys.stderr)
     exit_code = 0
     reader: TerminalInput | None = None

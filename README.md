@@ -5,6 +5,14 @@ validated versioned events, an async provider interface, a deterministic mock,
 a development intake policy, and a multi-turn NDJSON CLI. Prompt 02 adds an optional Anthropic adapter.
 Mock mode uses no API keys or network services.
 
+The [revised architecture and milestone plan](docs/architecture_v2.md) makes Mira
+a general assistant with a frontier cloud primary path and gym as a future skill.
+The prepared paid launcher now selects Claude Sonnet 5.5; Qwen remains available
+for offline development. Both real providers carry bounded recent conversation,
+address preferences and `/clear`. Cloud mode sends this context to Anthropic.
+Live cloud quality/latency remains unverified. Web/calculator/file tools, long-term
+personal memory, routing and broader safety are planned, not implemented.
+
 For open-ended answers and follow-up questions without a paid API key, use
 [local chat with Ollama](docs/local_chat.md). After installing the runtime and
 downloading a model, launch `& .\scripts\Start-Mira.ps1 -Local`. This mode retains
@@ -56,12 +64,13 @@ Without an API key, run `& .\scripts\Start-Mira.ps1 -Mock` for the free scripted
 terminal demo. Workout state and safety/stop commands work; persona evaluation
 still requires a real model.
 
-With a paid key, run `& .\scripts\Start-Mira.ps1 -Pilot` in PowerShell.
+With a paid key and credits, run `& .\scripts\Start-Mira.ps1 -Pilot` in PowerShell.
 It prompts privately for a key and runs five real-model scenarios with a $0.05
 cumulative estimate limit. See [terminal demo instructions](docs/live_demo.md)
 for setup, human persona review, cost accounting and interactive chat.
 The prepared demo has been tested offline; no paid pilot result is claimed.
-See [demo review and exact verification](docs/live_demo_review.md) for current results.
+See [demo review](docs/live_demo_review.md) for the earlier baseline and
+[cloud-readiness review](docs/cloud_readiness_review.md) for this change.
 
 The CLI now supports [authoritative workout commands](docs/workout_commands.md)
 and opt-in SQLite workout storage. General personal memory, API server, and

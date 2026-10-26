@@ -37,12 +37,15 @@ if ($Local) {
     exit $localExit
 }
 
-# These are explicit pilot rates, checked against the official documentation.
+# These are explicit Sonnet 5.5 rates, checked on 2026-10-26 against:
+# https://platform.claude.com/docs/en/models/overview
+# No-tools text-only mode: https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5
 # Recheck prices before running. The application itself has no default model/rates.
 $settings = @{
-    HOPE_ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'
-    HOPE_INPUT_USD_PER_MILLION = '1'
-    HOPE_OUTPUT_USD_PER_MILLION = '5'
+    HOPE_ANTHROPIC_MODEL = 'claude-sonnet-5-5'
+    HOPE_ANTHROPIC_THINKING_MODE = 'between_tools'
+    HOPE_INPUT_USD_PER_MILLION = '2'
+    HOPE_OUTPUT_USD_PER_MILLION = '10'
     HOPE_TURN_BUDGET_USD = '0.01'
     HOPE_SESSION_BUDGET_USD = '0.05'
     HOPE_MAX_TOKENS = '256'
@@ -68,6 +71,7 @@ try {
     $cliArguments = @('-m', 'hope_brain.cli', '--provider', 'anthropic', '--chat')
     if ($Pilot) { $cliArguments += '--live-pilot' }
     Write-Host 'Mira demo: $0.01 per turn, $0.05 cumulative for this process.'
+    Write-Host 'Cloud model: Claude Sonnet 5.5. Recent conversation is sent to Anthropic.'
     Write-Host 'NDJSON events are discarded here; Mira and pilot results appear below.'
     & $pythonPath @cliArguments 1>$null
     $resultCode = $LASTEXITCODE

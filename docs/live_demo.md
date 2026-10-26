@@ -37,12 +37,15 @@ to a file or Windows user environment. Do not paste keys into chat, source code 
 shell command literals. If a key was previously exposed, revoke it in the provider
 console; repository edits cannot invalidate leaked credentials.
 
-The launcher explicitly selects `claude-haiku-4-5-20251001`, $1 input / $5 output
+The launcher explicitly selects `claude-sonnet-5-5`, $2 input / $10 output
 per million tokens, 256 maximum output tokens, a 30-second total timeout, $0.01
-per turn and $0.05 cumulative. Pricing and model availability were checked on
-2026-10-24 against [official model details](https://platform.claude.com/docs/en/models/haiku-4-5/overview)
-and [pricing](https://platform.claude.com/docs/en/about-claude/pricing).
-Recheck those rates before spending; account-specific terms may differ.
+per turn and $0.05 cumulative. This replaces the earlier Haiku demo selection.
+The documented model and standard rates were checked on 2026-10-26 against the
+[official comparison](https://platform.claude.com/docs/en/models/overview).
+Recheck applicable rates and account access before spending. Live compatibility,
+Mira's cloud quality and latency have not been tested. The launcher explicitly
+sets `HOPE_ANTHROPIC_THINKING_MODE=between_tools` for text-only, no-tools replies;
+other modes still need adapter support. It restores this setting on exit as well.
 
 For interactive chat instead:
 
@@ -61,10 +64,13 @@ I'm dizzy, wait
 /quit
 ```
 
-The model receives the authorized workout snapshot during general conversation.
-Explicit workout commands still get deterministic replies. Mira has no general
-conversation-history buffer yet: earlier messages and tone preferences are not
-carried forward. Counts and confirmed targets come from the app, but model-written
+The model receives the authorized workout snapshot and bounded recent dialogue
+during general conversation. Explicit workout commands still get deterministic
+replies. The CLI keeps at most 8 completed exchanges / 12,000 UTF-8 bytes in RAM;
+current address preferences are application-owned. `/clear` resets dialogue and
+address, preserves workouts and makes no model call. It does not delete context
+already sent to Anthropic. Both counting and generation receive recent dialogue.
+Counts and confirmed targets come from the app, but model-written
 numeric claims are not yet checked semantically or added to count receipts; those
 receipts cover deterministic count replies. Review model state claims manually.
 The basic danger

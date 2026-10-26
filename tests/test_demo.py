@@ -284,6 +284,10 @@ def test_launcher_restores_environment_on_child_failure_without_logging_key(tmp_
         "assert os.environ['ANTHROPIC_API_KEY'] == 'test-secret'\n"
         "assert os.environ['HOPE_SESSION_BUDGET_USD'] == '0.05'\n"
         "assert os.environ['HOPE_TURN_BUDGET_USD'] == '0.01'\n"
+        "assert os.environ['HOPE_ANTHROPIC_MODEL'] == 'claude-sonnet-5-5'\n"
+        "assert os.environ['HOPE_ANTHROPIC_THINKING_MODE'] == 'between_tools'\n"
+        "assert os.environ['HOPE_INPUT_USD_PER_MILLION'] == '2'\n"
+        "assert os.environ['HOPE_OUTPUT_USD_PER_MILLION'] == '10'\n"
         "assert '--live-pilot' in sys.argv and '--chat' in sys.argv\n"
         "print('discarded-events')\n"
         "print('Mira: offline launcher probe', file=sys.stderr)\n"
@@ -294,13 +298,15 @@ def test_launcher_restores_environment_on_child_failure_without_logging_key(tmp_
         f"& '{launcher}' -Pilot; $childExit = $LASTEXITCODE; "
         "if ($env:ANTHROPIC_API_KEY -ne 'test-secret') { exit 91 }; "
         "if ($env:HOPE_SESSION_BUDGET_USD -ne 'original') { exit 92 }; "
+        "if ($env:HOPE_ANTHROPIC_THINKING_MODE -ne 'disabled') { exit 93 }; "
         "exit $childExit"
     )
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
         capture_output=True, text=True, timeout=20, check=False,
         env=os.environ | {"PYTHONPATH": str(tmp_path), "ANTHROPIC_API_KEY": "test-secret",
-                          "HOPE_SESSION_BUDGET_USD": "original"},
+                          "HOPE_SESSION_BUDGET_USD": "original",
+                          "HOPE_ANTHROPIC_THINKING_MODE": "disabled"},
     )
     assert result.returncode == 7, result.stderr
     assert "offline launcher probe" in result.stderr

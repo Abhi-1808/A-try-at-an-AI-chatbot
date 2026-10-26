@@ -6,7 +6,7 @@ import logging
 from time import perf_counter
 
 from anthropic import APITimeoutError, AsyncAnthropic
-from anthropic.types import MessageParam
+from anthropic.types import MessageParam, ThinkingConfigParam
 
 from hope_brain.context import CandidateReply, ContextBuilder, TrustedContext
 from hope_brain.contracts import BrainTurnRequest, SpeechSegment
@@ -45,7 +45,13 @@ class AnthropicProvider:
         self.settings = settings
         self.budget = SpendBudget(settings.session_budget_usd)
         self.last_metrics: dict[str, int | float | str] = {}
-        self.context_builder = ContextBuilder()
+        self.context_builder = ContextBuilder(conversational=True)
+        # Only text-only modes are supported by this adapter. Tools and reasoning
+        # blocks need their own validated transport before enabling them.
+        self.thinking: ThinkingConfigParam = (
+            {"type": "between_tools"} if settings.thinking_mode == "between_tools"
+            else {"type": "disabled"}
+        )
         self.client = client or AsyncAnthropic(
             api_key=settings.api_key.get_secret_value(),
             base_url="https://api.anthropic.com",
@@ -72,11 +78,20 @@ class AnthropicProvider:
                 if len(request.text.encode("utf-8")) > MAX_USER_BYTES:
                     raise ValueError("input limit")
                 built = self.context_builder.build(request, context)
-                messages: list[MessageParam] = [{"role": "user", "content": built.user_text}]
+                messages: list[MessageParam] = []
+                if context is not None:
+                    for turn in context.history:
+                        messages.append({"role": "user", "content": turn.user_text})
+                        messages.append({
+                            "role": "assistant",
+                            "content": CandidateReply(segments=list(turn.reply)).model_dump_json(),
+                        })
+                messages.append({"role": "user", "content": built.user_text})
                 metrics["context_ms"] = round((perf_counter() - started) * 1000, 3)
                 count_started = perf_counter()
                 count = await self.client.messages.count_tokens(
-                    model=self.settings.model, system=built.system, messages=messages
+                    model=self.settings.model, system=built.system, messages=messages,
+                    thinking=self.thinking,
                 )
                 if type(count.input_tokens) is not int or count.input_tokens < 0:
                     raise ValueError("invalid token count")
@@ -132,7 +147,7 @@ class AnthropicProvider:
             system=system,
             messages=messages,
             max_tokens=self.settings.max_tokens,
-            thinking={"type": "disabled"},
+            thinking=self.thinking,
             stream=True,
         )
         chunks: list[str] = []
