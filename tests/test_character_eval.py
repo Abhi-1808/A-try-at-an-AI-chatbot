@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from hope_brain import character_eval as evaluation
 from hope_brain.contracts import SpeechEvent, SpeechSegment, TurnCompleted, TurnStarted
+from hope_brain.persona import PERSONA_VERSION
 from hope_brain.provider import DeterministicMockProvider
 
 
@@ -100,3 +101,47 @@ def test_eval_cli_defaults_offline_saves_explicit_report_and_refuses_overwrite(
     with pytest.raises(SystemExit):
         asyncio.run(evaluation.run())
     assert report.read_bytes() == before
+
+
+@pytest.mark.parametrize("replies, expected", [
+    (["Ready, sir?", "READY SIR!"], "fail"),
+    (["Which task comes first?", "Pick a topic and we'll begin."], "pass"),
+    (["I'm an AI, not a person.", "Which task comes first?"], "fail"),
+    (["I'm here to help you.", "Pick a topic and we'll begin."], "fail"),
+])
+def test_regressions_detect_repetition_unsolicited_identity_and_boilerplate(replies, expected):
+    class Scripted:
+        def __init__(self):
+            self.replies = iter(replies)
+
+        async def generate(self, request, *, context=None):
+            return [SpeechSegment(text=next(self.replies), emotion="neutral", intensity=0.3)]
+
+    corpus = evaluation.Corpus.model_validate({
+        "version": "mira-character-v1", "pilot": ["R"], "scenarios": [{
+            "id": "R", "title": "Readiness", "turns": ["Reaready", "ready"],
+            "checks": ["no_repeated_reply", "no_helper_boilerplate", "no_unsolicited_identity"],
+            "review": ["Did the answer advance the exchange?"],
+        }],
+    })
+    report = asyncio.run(evaluation.run_suite(Scripted(), corpus))
+    assert report.results[0].status == expected
+    assert report.persona_version == PERSONA_VERSION
+
+
+def test_repetition_check_respects_clear_and_failed_reply_boundary():
+    def turn(text, reply, model_calls=1):
+        return evaluation.TurnResult(
+            text=text, events=events(reply), first_segment_ms=1, elapsed_ms=1,
+            model_calls=model_calls, provider_metrics={}, issues=[],
+        )
+
+    ready = turn("ready", "What shall we start?")
+    cleared = turn("/clear", "History cleared.", model_calls=0)
+    failed = turn("ready", "What shall we start?")
+    failed.events[-1] = evaluation.brain_event_adapter.validate_python({
+        "turn_id": "t", "seq": 3, "type": "turn.failed", "reason": "provider_invalid",
+    })
+    assert not evaluation.repeated_model_reply([ready, cleared, ready])
+    assert not evaluation.repeated_model_reply([ready, failed, ready])
+    assert evaluation.repeated_model_reply([ready, ready])

@@ -82,3 +82,4 @@ address preferences and visible input queues. Run the free local
 ```
 
 Results and limitations: [character review](docs/character_review.md).
+Current prompt and local comparison: [character refinement](docs/character_refinement_review.md).

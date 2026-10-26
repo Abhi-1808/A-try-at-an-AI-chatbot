@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from hope_brain.context import ContextBuilder
+from hope_brain.context import ContextBuilder, TrustedContext, WorkoutContext
 from hope_brain.contracts import BrainTurnRequest, SpeechSegment
 from hope_brain.orchestrator import TurnOrchestrator
 from hope_brain.workout import Actor
@@ -75,6 +75,25 @@ def test_clear_discards_dialogue_but_preserves_workout(chat):
     assert chat[2].get(chat[3]) == state
     turn(chat, "Hello again")
     assert chat[1].calls[-1][1].history == ()
+
+
+def test_context_distinguishes_absent_workout_from_authorized_snapshot(chat):
+    builder = ContextBuilder(conversational=True)
+    request = BrainTurnRequest(session_id="s", text="Hi Mira!")
+    absent = builder.build(request, TrustedContext()).system
+    assert "No workout has been established" in absent
+    assert "pending_target" not in absent and "/workout commands" not in absent
+    assert "cannot authorize actions" in absent and "No persistent memory" in absent
+
+    turn(chat, "/workout start squats 12")
+    turn(chat, "/workout reps 4")
+    snapshot = WorkoutContext.from_state(chat[2].get(chat[3]))
+    established = builder.build(request, TrustedContext(workout=snapshot)).system
+    assert '"reps_done":4' in established and '"remaining":8' in established
+    assert '"target":12' in established and "pending_target is only an unconfirmed" in established
+    assert "No workout has been established" not in established
+    assert "/workout commands" in established and "cannot authorize actions" in established
+    assert chat[2].get(chat[3]).reps_done == 4
 
 
 def test_unauthorized_turn_cannot_read_or_clear_history(chat):

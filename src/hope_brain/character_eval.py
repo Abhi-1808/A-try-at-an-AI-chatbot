@@ -27,10 +27,16 @@ from hope_brain.workout_store import SQLiteWorkoutRepository
 
 type Check = Literal[
     "ai_identity", "no_boss_final", "remaining_three", "completion_cheer", "safety_stop",
+    "no_repeated_reply", "no_helper_boilerplate", "no_unsolicited_identity",
 ]
 type Metric = str | float | int
 TERMINALS = {"turn.completed", "turn.failed", "turn.cancelled"}
 EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F\u20E3]")
+AI_IDENTITY = re.compile(r"\bai\b|artificial intelligence|\blanguage model\b", re.IGNORECASE)
+HELPER_BOILERPLATE = re.compile(
+    r"\b(?:helpful ai|here to help|how can i (?:help|assist)|what can i do for you)\b",
+    re.IGNORECASE,
+)
 DEFAULT_CORPUS = Path(__file__).resolve().parents[2] / "evals" / "character_v1.json"
 
 
@@ -152,6 +158,23 @@ def spoken(turn: TurnResult) -> str:
     return " ".join(e.segment.text for e in turn.events if e.type == "speech.segment")
 
 
+def repeated_model_reply(turns: Sequence[TurnResult]) -> bool:
+    """Narrow regression signal: adjacent exact replies, normalized for case/punctuation."""
+    previous = None
+    for turn in turns:
+        if turn.text.strip().casefold() == "/clear":
+            previous = None
+        elif turn.model_calls:
+            if turn.events[-1].type != "turn.completed":
+                previous = None
+                continue
+            current = " ".join(re.findall(r"\w+", spoken(turn).casefold()))
+            if current and current == previous:
+                return True
+            previous = current
+    return False
+
+
 async def run_suite(
     provider: ModelProvider, corpus: Corpus, *, pilot: bool = False, provider_name: str = "mock",
     emit: Callable[[BrainEvent], None] | None = None,
@@ -217,6 +240,17 @@ async def run_suite(
                     passed = bool(re.search(r"\bai\b|artificial intelligence", final_text))
                 elif check == "no_boss_final":
                     passed = not re.search(r"\b(boss|sir)\b", final_text)
+                elif check == "no_repeated_reply":
+                    passed = not repeated_model_reply(result.turns)
+                elif check == "no_helper_boilerplate":
+                    passed = not any(HELPER_BOILERPLATE.search(spoken(t)) for t in result.turns
+                                     if t.model_calls)
+                elif check == "no_unsolicited_identity":
+                    passed = not any(
+                        AI_IDENTITY.search(spoken(t))
+                        or re.search(r"\bnot a (?:real )?person\b", spoken(t), re.IGNORECASE)
+                        for t in result.turns if t.model_calls
+                    )
                 elif check == "remaining_three":
                     passed = (
                         state is not None and state.target == 12 and state.remaining == 3

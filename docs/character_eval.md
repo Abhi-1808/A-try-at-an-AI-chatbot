@@ -62,3 +62,22 @@ explicitly save fixed synthetic prompts and replies for review, under ignored
 shareable evaluation artifacts. Ordinary application metrics never log messages,
 secrets or internal reasoning. Golden examples are authored illustrations, not
 claims that any particular model produced or will reproduce them.
+
+## Character refinement regressions
+
+`evals/character_regressions_v1.json` supplements the unchanged original pilot with
+readiness after an identity question and `/clear`, a different everyday joke,
+a short general-knowledge question, and another AI-disclosure wording:
+
+```powershell
+& .\.venv312\Scripts\python.exe -m hope_brain.character_eval --provider ollama --corpus evals/character_regressions_v1.json --report local_data/character-regressions.json
+```
+
+New opt-in case checks detect adjacent repeated model replies (case, whitespace
+and punctuation normalized), a small list of service slogans, and identity terms
+in cases that did not ask about identity. `/clear` and failed turns reset the
+repetition comparison. These are narrow fixture-specific heuristics: they do not
+judge semantic repetition, and identity words are perfectly valid in other
+conversations. They never filter or rewrite actual chat. Keep these four cases
+separate from the original eight-case score. The existing corpus schema version
+supports both fixture files; report names and case IDs identify which was run.

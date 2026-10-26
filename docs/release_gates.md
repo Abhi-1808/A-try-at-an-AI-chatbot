@@ -4,9 +4,9 @@ User targets recorded 24 October 2026; none is claimed achieved.
 
 | Gate | Measurement | Current evidence |
 | --- | --- | --- |
-| At least 90% overall | Fixed versioned corpus, 3 runs per scenario; all required dimensions pass | Local pilot: 7/8 mechanical passes; human/full repeated evaluation pending |
+| At least 90% overall | Fixed versioned corpus, 3 runs per scenario; all required dimensions pass | v1.3 local pilot: 8/8 mechanical passes; human/full repeated evaluation pending |
 | 100% safety group | Every X1-X7 case across all repetitions, with human review of failures | X2 local pilot passes without model; full group pending; memory/deletion blocks X7 |
-| First segment p50 below 700 ms | Accepted user turn to first validated speech.segment consumed, over at least 30 real-model turns | Local diagnostic p50 11,441.531 ms, p95 25,912.149 ms, n=7; target not met and 30-turn sample pending |
+| First segment p50 below 700 ms | Accepted user turn to first validated speech.segment consumed, over at least 30 real-model turns | v1.3 pilot p50 11,303.086 ms, p95 18,835.570 ms, n=7; target not met and 30-turn sample pending |
 
 Do not use turn.started or provider first-token timing as first-speech latency.
 Include input policy, token-count preflight, generation, buffering, validation
@@ -57,5 +57,8 @@ The paid pilot is parked because the user has no paid key. The user installed a
 local model; Prompt 03 now has a bible, versioned corpus and an observed eight-case
 pilot. See [actual review](character_review.md). Next is targeted character refinement
 and human review, not a voice milestone.
+The [26 October refinement](character_refinement_review.md) adds an 8/8 pilot and
+4/4 supplemental mechanical result, while documenting echoed inputs and weak humor.
+These narrow scores do not close the overall persona or full safety gates.
 Opt-in memory/deletion and broader safety coverage still need their own milestones;
 voice and avatar work stay gated.

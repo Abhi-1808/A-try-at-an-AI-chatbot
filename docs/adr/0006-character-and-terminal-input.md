@@ -31,3 +31,15 @@ Keep JSON-schema-constrained generation and `think: false`, which were already
 present. Record redacted timing/token metrics and whether thinking output appeared.
 Buffered validation means first validated segment waits for the entire model reply;
 measure this honestly before considering a streaming change.
+
+26 October refinement: version the prompt as `mira-v1.3`; use structured original
+demonstrations without the copied readiness line, explicit restrained intensity,
+and direct identity wording. Keep provider settings, event validation and the
+eight-case corpus unchanged for comparison. Add a separate small regression corpus
+and opt-in lexical/repetition checks. Preserve failures; no output cleanup or
+automatic generation retry is introduced.
+Show detailed workout instructions only when the authorized context contains a
+workout. Otherwise explicitly say none is established and avoid assuming exercise
+is planned. This reduces irrelevant workout steering while retaining the same
+state ownership and safety policy. Intermediate prompt revisions and observed
+regressions remain in the comparison evidence.

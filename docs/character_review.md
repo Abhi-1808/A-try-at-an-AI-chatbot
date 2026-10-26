@@ -1,5 +1,8 @@
 # Character and local terminal review — 25 October 2026
 
+This is the original baseline. See the [26 October refinement](character_refinement_review.md)
+for the current prompt, comparison runs and remaining limitations.
+
 Implemented the requested Prompt 03 character work, then exercised the installed
 local model. This review separates automatic checks, observed dialogue and assistant
 judgment. No paid call, download, training, new infrastructure, voice or avatar work.
